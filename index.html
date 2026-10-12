@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#2563eb"><link rel="apple-touch-icon" href="icon-192.png"><title>डॉक्यूमेंट स्कैनर</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f5f7;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--ac:#2563eb;--bd:#e2e5ea}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1c2127;--tx:#eceff3;--mut:#9aa4b2;--ac:#4f8cff;--bd:#2d343c}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1c2127;--tx:#eceff3;--mut:#9aa4b2;--ac:#4f8cff;--bd:#2d343c}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif;padding:12px;max-width:720px;margin:auto}
+h1{font-size:19px;margin:4px 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+button,.btn{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:14px;cursor:pointer;font-family:inherit}
+.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.on{border-color:var(--ac);color:var(--ac);font-weight:600}
+.pri.on{color:#fff}
+#stage{background:var(--card);border:1px solid var(--bd);border-radius:12px;min-height:220px;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden}
+canvas{touch-action:none;max-width:100%}
+#empty{color:var(--mut);text-align:center;padding:30px 10px;font-size:14px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;margin-top:8px}
+.panel label{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
+.panel input[type=range]{flex:1}
+#th{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
+.t{position:relative;flex:0 0 auto}
+.t img{height:72px;border-radius:8px;border:2px solid var(--bd);display:block}
+.t.cur img{border-color:var(--ac)}
+.t b{position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;text-align:center;line-height:20px}
+.hide{display:none}small{color:var(--mut)}select{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:6px;font-family:inherit}
+</style></head><body>
+<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:nowrap"><h1 style="margin:0">📄 डॉक्यूमेंट स्कैनर</h1><button onclick="$('st').classList.toggle('hide')">⚙️ सेटिंग</button></div>
+<div id="st" class="panel hide">
+ <label>थीम <select id="s_th"><option value="auto">ऑटो</option><option value="light">लाइट</option><option value="dark">डार्क</option></select></label>
+ <label><input type="checkbox" id="s_ac"> फोटो जोड़ते ही ऑटो क्रॉप</label>
+ <label><input type="checkbox" id="s_ae"> फोटो जोड़ते ही ऑटो एन्हांस</label>
+ <label>PDF क्वालिटी <select id="s_q"><option value="0.6">कम</option><option value="0.8">मध्यम</option><option value="0.92">उच्च</option></select></label>
+ </div>
+<div class="row">
+ <button class="pri" onclick="openCam()">📷 कैमरा से स्कैन</button>
+ <button onclick="gal.click()">🖼️ गैलरी से जोड़ें</button>
+ <input id="cam" type="file" accept="image/*" capture="environment" class="hide">
+ <input id="gal" type="file" accept="image/*" multiple class="hide">
+</div>
+<div id="stage"><div id="empty">कोई पेज नहीं है।<br>ऊपर से फोटो खींचें या चुनें — एक साथ कई पेज जोड़ सकते हैं।</div><canvas id="cv" class="hide"></canvas></div>
+<div id="ed" class="hide">
+ <div class="row">
+  <button id="tc" class="on" onclick="setTab('crop')">✂️ क्रॉप</button>
+  <button id="te" onclick="setTab('enh')">✨ एन्हांस</button>
+ </div>
+ <div id="pc" class="panel">
+  <div class="row" style="margin:0"><button onclick="autoCrop()">🔍 ऑटो क्रॉप</button><button onclick="fullCrop()">⬜ पूरा पेज</button><button class="pri" onclick="okCrop()">✅ ठीक है</button><button onclick="cancel(0)">✖ रद्द</button></div>
+  <small>मैनुअल क्रॉप: कोनों के गोलों को उंगली से खींचें।</small>
+ </div>
+ <div id="pe" class="panel hide">
+  <div class="row" style="margin:0 0 6px"><button class="pri" onclick="autoEnh()">⚡ ऑटो एन्हांस</button></div>
+  <div class="row" style="margin:0" id="modes">
+   <button data-m="auto">ऑटो</button><button data-m="color">रंगीन+</button><button data-m="bw">B&amp;W</button><button data-m="gray">ग्रे</button><button data-m="orig">ओरिजिनल</button>
+  </div>
+  <label>ब्राइटनेस <input type="range" id="br" min="-100" max="100" value="0"></label>
+  <label>कंट्रास्ट <input type="range" id="ct" min="-100" max="100" value="0"></label>
+  <label>शार्पनेस <input type="range" id="fx_sh" min="0" max="100" value="0"></label>
+  <label>सफेदी <input type="range" id="fx_wh" min="0" max="100" value="0"></label>
+  <label>रंग गहराई <input type="range" id="fx_sat" min="-100" max="100" value="0"></label>
+  <label>B&amp;W संवेदनशीलता <input type="range" id="fx_th" min="-50" max="50" value="0"></label>
+  <label><input type="checkbox" id="fx_shd"> छाया/परछाईं हटाएं</label>
+  <div class="row" style="margin:6px 0 0"><button onclick="rot(-1)">↺ बाएँ</button><button onclick="rot(1)">↻ दाएँ</button><button onclick="inv()">◐ उल्टा रंग</button><button onclick="rst()">♻ रीसेट</button></div>
+  <div class="row" style="margin:8px 0 0"><button class="pri" onclick="okEnh()">✅ ठीक है</button><button onclick="cancel(1)">✖ रद्द</button></div>
+ </div>
+</div>
+<div class="panel hide" id="pg">
+ <b id="cnt" style="font-size:14px"></b> <small id="msg"></small>
+ <div id="th"></div>
+ <div class="row" style="margin-bottom:0">
+  <button class="pri" onclick="savePDF()">📥 PDF सेव करें</button>
+  <button onclick="saveImg()">🖼️ यह पेज इमेज</button>
+  
+  
+ </div>
+</div>
+<div id="toast" style="display:none;position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));background:#111;color:#fff;border-radius:10px;padding:10px 12px;font-size:14px;z-index:30;text-align:center"></div>
+<div id="cm" style="display:none;position:fixed;inset:0;background:#000;z-index:20;flex-direction:column">
+ <video id="vd" autoplay playsinline muted style="flex:1;min-height:0;width:100%;object-fit:contain"></video>
+ <div style="display:flex;gap:10px;justify-content:center;align-items:center;padding:12px 12px calc(70px + env(safe-area-inset-bottom,0px));background:#000">
+  <button onclick="closeCam()">✅ हो गया</button><button class="pri" style="padding:14px 22px" onclick="snapCam()">📸 कैप्चर</button><button onclick="flipCam()">🔄</button><span id="cc" style="color:#fff;font-size:13px"></span>
+ </div></div>
+<script>
+const $=id=>document.getElementById(id),cv=$('cv'),cx=cv.getContext('2d');
+let pages=[],cur=-1,tab='crop',drag=-1,S=1,raf=0,tt=0;
+const MAXI=1600,MAXO=1600,P=22;
+let cfg={ac:1,ae:1,q:.92,theme:'auto'},DL=null,last={x:0,y:0};
+try{Object.assign(cfg,JSON.parse(localStorage.getItem('scancfg')||'{}'))}catch(e){}
+const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2}),hp=q=>[...q,mid(q[0],q[1]),mid(q[1],q[2]),mid(q[2],q[3]),mid(q[3],q[0])];
+const sg=p=>JSON.stringify(p.q)+p.mode+p.br+p.ct+JSON.stringify(p.fx);
+let mt=0;function msg(t){const e=$('toast');e.textContent=t;e.style.display=t?'block':'none';clearTimeout(mt);if(t)mt=setTimeout(()=>e.style.display='none',6000)}
+let stream=null,face='environment',shots=0;
+async function startCam(){stopCam();stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:face},width:{ideal:1920},height:{ideal:1080}},audio:false});$('vd').srcObject=stream}
+function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+async function openCam(){try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw 0;await startCam();shots=0;$('cc').textContent='';$('cm').style.display='flex'}catch(e){msg('लाइव कैमरा इस व्यू में नहीं खुल सका। खुलने वाली लिस्ट में "कैमरा" चुनें।');cam.click()}}
+function closeCam(){stopCam();$('cm').style.display='none'}
+async function flipCam(){face=face==='environment'?'user':'environment';try{await startCam()}catch(e){msg('कैमरा बदल नहीं पाया')}}
+function snapCam(){const v=$('vd');if(!v.videoWidth)return;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);c.toBlob(b=>{load([b]);shots++;$('cc').textContent=shots+' पेज जोड़े'},'image/jpeg',.92)}
+function snap(p){p.sn={q:p.q.map(z=>({x:z.x,y:z.y})),mode:p.mode,br:p.br,ct:p.ct,fx:{...p.fx}}}
+function hl(){const p=pages[cur];document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===p.mode))}
+function okCrop(){const p=pages[cur];snap(p);msg('क्रॉप लागू ✅ — अब एन्हांस करें');setTab('enh')}
+function okEnh(){const p=pages[cur];snap(p);ready(p);thumbs();msg('पेज सेव हो गया ✅');$('pg').scrollIntoView({behavior:'smooth'})}
+function cancel(e){const p=pages[cur],s=p.sn;if(!s)return;if(e){p.mode=s.mode;p.br=s.br;p.ct=s.ct;p.fx={...s.fx};syncUI(p);upd()}else{p.q=s.q.map(z=>({x:z.x,y:z.y}));p.w=null;draw();thumbs()}}
+function syncUI(p){$('br').value=p.br;$('ct').value=p.ct;for(const k of ['sh','wh','sat','th'])$('fx_'+k).value=p.fx[k];$('fx_shd').checked=!!p.fx.shd;hl()}
+const fq=p=>{const W=p.c.width,H=p.c.height;return[{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}]};
+function mv(p,m){const cl=z=>({x:Math.max(0,Math.min(p.c.width,z.x)),y:Math.max(0,Math.min(p.c.height,z.y))});
+ if(drag<4)p.q[drag]=cl(m);else{const dx=m.x-last.x,dy=m.y-last.y,[i,j]=[[0,1],[1,2],[2,3],[3,0]][drag-4];
+  p.q[i]=cl({x:p.q[i].x+dx,y:p.q[i].y+dy});p.q[j]=cl({x:p.q[j].x+dx,y:p.q[j].y+dy});last=m}}
+function load(files){[...files].forEach(f=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{
+ let s=Math.min(1,MAXI/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s|0;c.height=im.height*s|0;
+ c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+ const p={c,sd:c.getContext('2d').getImageData(0,0,c.width,c.height),mode:cfg.ae?'auto':'orig',br:0,ct:0,fx:cfg.ae?{sh:25,shd:1,wh:20,th:0,sat:0,inv:0,rot:0}:{sh:0,shd:0,wh:0,th:0,sat:0,inv:0,rot:0},out:document.createElement('canvas')};
+ p.q=cfg.ac?detect(p):fq(p);pages.push(p);sel(pages.length-1)};im.src=u});}
+$('cam').onchange=e=>{load(e.target.files);e.target.value=''};
+$('gal').onchange=e=>{load(e.target.files);e.target.value=''};
+function detect(p){const W=p.c.width,H=p.c.height,s=220/Math.max(W,H),w=W*s|0,h=H*s|0,t=document.createElement('canvas');t.width=w;t.height=h;
+ const x=t.getContext('2d');x.drawImage(p.c,0,0,w,h);const d=x.getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+ for(let i=0;i<w*h;i++)g[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];
+ let b=[];for(let i=0;i<w;i++){b.push(g[i],g[(h-1)*w+i])}for(let j=0;j<h;j++){b.push(g[j*w],g[j*w+w-1])}
+ b.sort((a,c)=>a-c);const bg=b[b.length>>1],rc=new Array(h).fill(0),cc=new Array(w).fill(0);
+ for(let j=0;j<h;j++)for(let i=0;i<w;i++)if(Math.abs(g[j*w+i]-bg)>38){rc[j]++;cc[i]++}
+ const f=(a,n)=>{let lo=a.findIndex(v=>v>n*.12),hi=a.length-1-[...a].reverse().findIndex(v=>v>n*.12);return[lo,hi]};
+ let[y0,y1]=f(rc,w),[x0,x1]=f(cc,h);
+ if(y0<0||x0<0||(x1-x0)<w*.2||(y1-y0)<h*.2){x0=w*.03;y0=h*.03;x1=w*.97;y1=h*.97}
+ const m=2;x0=Math.max(0,x0-m)/s;y0=Math.max(0,y0-m)/s;x1=Math.min(w,x1+m)/s;y1=Math.min(h,y1+m)/s;
+ return[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}]}
+function warp(p){const[a,b,c,d]=p.q,D=(m,n)=>Math.hypot(m.x-n.x,m.y-n.y);
+ let W=Math.max(D(a,b),D(d,c)),H=Math.max(D(a,d),D(b,c)),s=Math.min(1,MAXO/Math.max(W,H));W=Math.max(8,W*s|0);H=Math.max(8,H*s|0);
+ const o=new ImageData(W,H),od=o.data,sd=p.sd.data,sw=p.sd.width,sh=p.sd.height;
+ for(let y=0;y<H;y++){const v=y/H;for(let x=0;x<W;x++){const u=x/W,
+  sx=(1-v)*((1-u)*a.x+u*b.x)+v*((1-u)*d.x+u*c.x),sy=(1-v)*((1-u)*a.y+u*b.y)+v*((1-u)*d.y+u*c.y),
+  xi=Math.min(sw-1,Math.max(0,sx|0)),yi=Math.min(sh-1,Math.max(0,sy|0)),si=(yi*sw+xi)*4,oi=(y*W+x)*4;
+  od[oi]=sd[si];od[oi+1]=sd[si+1];od[oi+2]=sd[si+2];od[oi+3]=255}}
+ p.w=o}
+function blurBg(d,W,H,f){const t=document.createElement('canvas');t.width=W;t.height=H;t.getContext('2d').putImageData(d,0,0);const sm=document.createElement('canvas');sm.width=Math.max(1,W/f|0);sm.height=Math.max(1,H/f|0);sm.getContext('2d').drawImage(t,0,0,sm.width,sm.height);t.getContext('2d').drawImage(sm,0,0,W,H);return t.getContext('2d').getImageData(0,0,W,H).data}
+function enh(p){if(!p.w)warp(p);const W=p.w.width,H=p.w.height,d=new ImageData(new Uint8ClampedArray(p.w.data),W,H),a=d.data,n=W*H,m=p.mode,fx=p.fx;if(fx.shd){const bg=blurBg(d,W,H,14);for(let i=0;i<n;i++){const j=i*4;for(let c=0;c<3;c++)a[j+c]=a[j+c]/Math.max(30,bg[j+c])*240}}
+ if(m!=='orig'){const h=new Uint32Array(256);for(let i=0;i<n;i++)h[(.3*a[i*4]+.59*a[i*4+1]+.11*a[i*4+2])|0]++;
+  let lo=0,hi=255,s=0;for(;lo<255;lo++){s+=h[lo];if(s>n*.01)break}s=0;for(;hi>0;hi--){s+=h[hi];if(s>n*.01)break}
+  if(hi-lo<20){lo=0;hi=255}const k=255/(hi-lo);
+  for(let i=0;i<n;i++){const j=i*4;if(m==='gray'||m==='bw'){const l=(.3*a[j]+.59*a[j+1]+.11*a[j+2]-lo)*k;a[j]=a[j+1]=a[j+2]=l}else{a[j]=(a[j]-lo)*k;a[j+1]=(a[j+1]-lo)*k;a[j+2]=(a[j+2]-lo)*k}}
+  if(m==='bw'){const t=document.createElement('canvas');t.width=W;t.height=H;t.getContext('2d').putImageData(d,0,0);
+   const sm=document.createElement('canvas');sm.width=Math.max(1,W/10|0);sm.height=Math.max(1,H/10|0);const sx=sm.getContext('2d');sx.drawImage(t,0,0,sm.width,sm.height);
+   t.getContext('2d').drawImage(sm,0,0,W,H);const bg=t.getContext('2d').getImageData(0,0,W,H).data;
+   for(let i=0;i<n;i++){const j=i*4,v=a[j]<bg[j]*(.9+fx.th/500)?0:255;a[j]=a[j+1]=a[j+2]=v}}}
+ if(m!=='gray'&&m!=='bw'&&(fx.sat||m==='color')){const s=1+fx.sat/100+(m==='color'?.4:0);for(let i=0;i<n;i++){const j=i*4,l=.3*a[j]+.59*a[j+1]+.11*a[j+2];a[j]=l+(a[j]-l)*s;a[j+1]=l+(a[j+1]-l)*s;a[j+2]=l+(a[j+2]-l)*s}}
+ if(p.br||p.ct||fx.wh){const f=1+p.ct/100,b=p.br*2.55,g=1-fx.wh/200,L=new Uint8ClampedArray(256);for(let i=0;i<256;i++)L[i]=(Math.pow(i/255,g)*255-128)*f+128+b;for(let i=0;i<n;i++){const j=i*4;a[j]=L[a[j]];a[j+1]=L[a[j+1]];a[j+2]=L[a[j+2]]}}
+ if(fx.sh){const o=new Uint8ClampedArray(a),k=fx.sh/50;for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const j=(y*W+x)*4;for(let c=0;c<3;c++){const i=j+c;a[i]=o[i]+k*(o[i]-(o[i-4]+o[i+4]+o[i-W*4]+o[i+W*4])/4)}}}
+ if(fx.inv)for(let i=0;i<n;i++){const j=i*4;a[j]=255-a[j];a[j+1]=255-a[j+1];a[j+2]=255-a[j+2]}
+ const rt=fx.rot%4;if(rt){const t=document.createElement('canvas');t.width=W;t.height=H;t.getContext('2d').putImageData(d,0,0);const sw=rt%2;p.out.width=sw?H:W;p.out.height=sw?W:H;const x=p.out.getContext('2d');x.translate(p.out.width/2,p.out.height/2);x.rotate(rt*Math.PI/2);x.drawImage(t,-W/2,-H/2)}else{p.out.width=W;p.out.height=H;p.out.getContext('2d').putImageData(d,0,0)}p.ok=sg(p)}
+function sel(i){cur=i;const p=pages[i];snap(p);$('empty').classList.add('hide');cv.classList.remove('hide');$('ed').classList.remove('hide');$('pg').classList.remove('hide');
+ syncUI(p);setTab(tab)}
+function setTab(t){tab=t;$('tc').classList.toggle('on',t==='crop');$('te').classList.toggle('on',t==='enh');
+ $('pc').classList.toggle('hide',t!=='crop');$('pe').classList.toggle('hide',t!=='enh');
+ const p=pages[cur];if(t==='enh'){warp(p);enh(p);hl()}draw();thumbs()}
+function draw(){const p=pages[cur];if(!p)return;const src=tab==='crop'?p.c:p.out,bw=Math.min(680,$('stage').clientWidth-14),bh=innerHeight*.55;
+ S=Math.min((bw-2*P)/src.width,(bh-2*P)/src.height);cv.width=(src.width*S|0)+2*P;cv.height=(src.height*S|0)+2*P;cx.drawImage(src,P,P,cv.width-2*P,cv.height-2*P);
+ if(tab==='crop'){const q=p.q.map(z=>({x:z.x*S+P,y:z.y*S+P}));cx.fillStyle='rgba(37,99,235,.18)';cx.strokeStyle='#2563eb';cx.lineWidth=2.5;
+  cx.beginPath();q.forEach((z,i)=>i?cx.lineTo(z.x,z.y):cx.moveTo(z.x,z.y));cx.closePath();cx.fill();cx.stroke();
+  q.forEach(z=>{cx.beginPath();cx.arc(z.x,z.y,13,0,7);cx.fillStyle='#fff';cx.fill();cx.stroke()});
+  [[0,1],[1,2],[2,3],[3,0]].forEach(([i,j])=>{const m=mid(q[i],q[j]);cx.fillStyle='#2563eb';cx.beginPath();cx.rect(m.x-9,m.y-9,18,18);cx.fill();cx.strokeStyle='#fff';cx.lineWidth=2;cx.stroke();cx.strokeStyle='#2563eb';cx.lineWidth=2.5})}}
+function pos(e){const r=cv.getBoundingClientRect();return{x:((e.clientX-r.left)*cv.width/r.width-P)/S,y:((e.clientY-r.top)*cv.height/r.height-P)/S}}
+cv.onpointerdown=e=>{if(tab!=='crop')return;const p=pages[cur],m=pos(e);let best=-1,bd=34/S;last=m;
+ hp(p.q).forEach((z,i)=>{const d=Math.hypot(z.x-m.x,z.y-m.y);if(d<bd){bd=d;best=i}});drag=best;if(best>=0)cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(drag<0)return;const p=pages[cur],m=pos(e);mv(p,m);
+ if(!raf)raf=requestAnimationFrame(()=>{raf=0;draw()})};
+cv.onpointerup=()=>{if(drag>=0){drag=-1;pages[cur].w=null;thumbs()}};
+function autoCrop(){const p=pages[cur];p.q=detect(p);p.w=null;draw();thumbs()}
+function fullCrop(){const p=pages[cur],W=p.c.width,H=p.c.height;p.q=[{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}];p.w=null;draw();thumbs()}
+function upd(){const p=pages[cur];enh(p);draw();clearTimeout(tt);tt=setTimeout(thumbs,250);
+ document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===p.mode))}
+function autoEnh(){const p=pages[cur];p.mode='auto';p.br=p.ct=0;p.fx={sh:25,shd:1,wh:20,th:0,sat:0,inv:0,rot:p.fx.rot};syncUI(p);upd()}
+function rot(d){const p=pages[cur];p.fx.rot=(p.fx.rot+d+4)%4;upd()}
+function inv(){const p=pages[cur];p.fx.inv=p.fx.inv?0:1;upd()}
+function rst(){const p=pages[cur];p.mode='orig';p.br=p.ct=0;p.fx={sh:0,shd:0,wh:0,th:0,sat:0,inv:0,rot:p.fx.rot};syncUI(p);upd()}
+for(const k of ['sh','wh','sat','th'])$('fx_'+k).oninput=e=>{pages[cur].fx[k]=+e.target.value;upd()};
+$('fx_shd').onchange=e=>{pages[cur].fx.shd=+e.target.checked;upd()};
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{pages[cur].mode=b.dataset.m;upd()});
+$('br').oninput=e=>{pages[cur].br=+e.target.value;upd()};
+$('ct').oninput=e=>{pages[cur].ct=+e.target.value;upd()};
+function ready(p){if(p.ok!==sg(p))enh(p)}
+function thumbs(){pages.forEach((p,i)=>{ready(p);if(i!==cur)p.w=null});
+ $('cnt').textContent='स्कैन किए पेज: '+pages.length;
+ $('th').innerHTML='';pages.forEach((p,i)=>{const d=document.createElement('div');d.className='t'+(i===cur?' cur':'');
+  if(p.ths!==p.ok){const t=document.createElement('canvas'),k=100/Math.max(p.out.width,p.out.height);t.width=Math.max(1,p.out.width*k|0);t.height=Math.max(1,p.out.height*k|0);t.getContext('2d').drawImage(p.out,0,0,t.width,t.height);p.th=t.toDataURL('image/jpeg',.6);p.ths=p.ok}d.innerHTML='<img src="'+p.th+'"><b>×</b>';
+  d.querySelector('img').onclick=()=>sel(i);
+  d.querySelector('b').onclick=()=>{pages.splice(i,1);if(!pages.length){cur=-1;cv.classList.add('hide');$('ed').classList.add('hide');$('pg').classList.add('hide');$('empty').classList.remove('hide')}else sel(Math.min(i,pages.length-1))};
+  $('th').appendChild(d)})}
+async function dl(blob,name){let d=DL;try{if(!d&&window.claude&&claude.use)d=DL=await claude.use('downloads')}catch(e){}
+ if(d){try{msg('सेव की पुष्टि करें…');await d.save({filename:name,data:blob});msg('सेव हो गया ✅');return}catch(e){if(e&&e.code==='declined'){msg('सेव रद्द किया');return}msg('सेव में दिक्कत ('+((e&&(e.code||e.message))||'?')+') — शेयर विकल्प आज़मा रहा हूँ')}}else msg('डाउनलोड सुविधा नहीं मिली — शेयर विकल्प आज़मा रहा हूँ');
+ await dl2(blob,name)}
+async function dl2(blob,name){
+ const b64=()=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob)});
+ try{const A=window.AndroidBridge;if(A&&A.saveBase64){A.saveBase64(name,blob.type,await b64());msg('सेव हो गया ✅ (Downloads)');return}
+  const C=window.Capacitor&&Capacitor.Plugins;if(C&&C.Filesystem){await C.Filesystem.writeFile({path:name,data:await b64(),directory:'DOCUMENTS',recursive:true});msg('सेव हुआ: Documents/'+name);return}}catch(e){msg('सेव में त्रुटि: '+((e&&e.message)||e));return}
+ try{const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e&&e.name==='AbortError')return}if(/\bwv\b/.test(navigator.userAgent)){msg('इस APK में डाउनलोड का सपोर्ट जोड़ा नहीं गया है (AndroidBridge चाहिए)');return}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function saveImg(){const p=pages[cur];ready(p);p.out.toBlob(b=>dl(b,'scan-'+(cur+1)+'.jpg'),'image/jpeg',.92)}
+async function savePDF(){msg('PDF बन रहा है…');const enc=new TextEncoder(),ch=[],offs=[];let len=0;const push=a=>{ch.push(a);len+=a.length},str=s=>push(enc.encode(s));
+ const js=[];try{for(const p of pages){ready(p);const bl=await new Promise(r=>p.out.toBlob(r,'image/jpeg',cfg.q));js.push({w:p.out.width,h:p.out.height,by:new Uint8Array(await bl.arrayBuffer())})}}catch(e){msg('PDF नहीं बन पाया: '+e.message);return}const n=js.length;
+ const add=(id,f)=>{offs[id]=len;str(id+' 0 obj\n');f();str('\nendobj\n')};
+ str('%PDF-1.4\n');add(1,()=>str('<</Type/Catalog/Pages 2 0 R>>'));
+ add(2,()=>str('<</Type/Pages/Count '+n+'/Kids['+js.map((_,i)=>(5+3*i)+' 0 R').join(' ')+']>>'));
+ js.forEach((j,i)=>{const W=Math.round(j.w*.75),H=Math.round(j.h*.75),c='q '+W+' 0 0 '+H+' 0 0 cm /I Do Q';
+  add(3+3*i,()=>{str('<</Type/XObject/Subtype/Image/Width '+j.w+'/Height '+j.h+'/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length '+j.by.length+'>>\nstream\n');push(j.by);str('\nendstream')});
+  add(4+3*i,()=>str('<</Length '+c.length+'>>\nstream\n'+c+'\nendstream'));
+  add(5+3*i,()=>str('<</Type/Page/Parent 2 0 R/MediaBox[0 0 '+W+' '+H+']/Contents '+(4+3*i)+' 0 R/Resources<</XObject<</I '+(3+3*i)+' 0 R>>>>>>'))});
+ const xr=len,N=3*n+3;str('xref\n0 '+N+'\n0000000000 65535 f \n');for(let i=1;i<N;i++)str(String(offs[i]).padStart(10,'0')+' 00000 n \n');
+ str('trailer\n<</Size '+N+'/Root 1 0 R>>\nstartxref\n'+xr+'\n%%EOF');dl(new Blob(ch,{type:'application/pdf'}),'scan.pdf').then(()=>{})}
+function applyCfg(){document.documentElement.dataset.theme=cfg.theme==='auto'?'':cfg.theme}
+const sv=()=>{try{localStorage.setItem('scancfg',JSON.stringify(cfg))}catch(e){}};
+$('s_th').value=cfg.theme;$('s_ac').checked=!!cfg.ac;$('s_ae').checked=!!cfg.ae;$('s_q').value=String(cfg.q);applyCfg();
+$('s_th').onchange=e=>{cfg.theme=e.target.value;applyCfg();sv()};
+$('s_ac').onchange=e=>{cfg.ac=+e.target.checked;sv()};
+$('s_ae').onchange=e=>{cfg.ae=+e.target.checked;sv()};
+$('s_q').onchange=e=>{cfg.q=+e.target.value;sv()};
+if(window.claude&&claude.use){claude.use('downloads').then(d=>DL=d).catch(()=>{})}
+addEventListener('resize',()=>{if(cur>=0)draw()});
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script></body></html>
